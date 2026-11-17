@@ -1,0 +1,48 @@
+issue_id,table,column,issue,rows_affected,decision
+1,flights,(all),No primary key column; rows are only unique on a 7-column combination,435352,"Added surrogate key flight_id (1 to N, in the original row order)"
+2,all tables,(all),Fully duplicated rows (check),0,None found; no action needed
+3,flights,"dep_time, sched_dep_time, arr_time, sched_arr_time","Clock times stored as HHMM numbers (517 = 05:17), read as decimals because of blank rows",435352,Departures converted to full DATETIME columns; arrivals converted to TIME columns
+4,flights,dep_time,Value 2400 used for midnight (not a valid clock time),27,Converted to 00:00 of the next day in actual_dep_datetime
+5,flights,arr_time,Value 2400 used for midnight (not a valid clock time),198,Converted to 00:00:00 in actual_arr_time
+6,flights,dep_time,"Actual departure was on the day after the scheduled date, but the file has no actual date",2409,"Built actual_dep_datetime with the correct date, using dep_delay to detect the day change"
+7,flights,dep_delay,Delay differs from the clock difference by 1 hour (flights delayed across a daylight-saving change),2,Kept as is; the delay is correct elapsed time. Documented
+8,flights,"dep_time, dep_delay, arr_time, arr_delay, air_time",All departure and arrival fields missing: the flight was cancelled,10738,"Rows kept, values left missing (not filled with 0). Flagged flight_status = 'cancelled'"
+9,flights,"arr_delay, air_time",Flight departed but has no arrival delay or air time (diverted or arrival not recorded),1796,"Rows kept, values left missing. Flagged flight_status = 'diverted_or_incomplete'"
+10,flights,tailnum,Missing tail number (all on cancelled flights),1913,Left missing; no aircraft was assigned
+11,flights,"hour, minute","Redundant copies of sched_dep_time, stored as decimals",435352,Dropped; the same information is in sched_dep_datetime
+12,flights,"year, month, day",Date split over three columns (year is always 2023),435352,"Combined into one DATE column, flight_date"
+13,flights,"dep_delay, arr_delay, air_time, distance",Whole numbers stored as decimals (203.0),435352,Converted to integers that allow missing values; units added to the column names
+14,flights,air_time,Implied average speed above 700 mph (air_time probably too short),2,Kept unchanged; no reliable value to correct it with. Documented
+15,flights,arr_delay,Arrival delay does not match the arrival clock times,1,Kept unchanged; cannot tell which field is wrong. Documented
+16,flights,tailnum,"Tail number written without the leading N (all Allegiant Air, e.g. 203NV)",668,Prefixed with N so all tail numbers share one format
+17,flights,"carrier, origin, dest",Codes missing from airlines / airports lookup tables (check),0,None found; these three foreign keys are fully valid
+18,flights,tailnum,Tail number not in the planes table (277 distinct aircraft),9371,"Flights and tail numbers kept; documented exception (use LEFT JOIN, no strict foreign key)"
+19,flights,"origin, time_hour",No weather row exists for the flight's origin and hour,826,Flights kept; documented exception (use LEFT JOIN)
+20,planes,manufacturer,12 spellings for 7 manufacturers (e.g. AIRBUS / AIRBUS INDUSTRIE / AIRBUS SAS),4840,Standardised to 7 names with an explicit mapping (see section 3.2)
+21,planes,speed,Value is 0 on every row; no information,4840,Column dropped
+22,planes,year,Stored as decimal; ambiguous name that clashes with a MySQL keyword,4840,Converted to integer and renamed year_manufactured
+23,planes,year,Missing year of manufacture,89,Left missing; not imputed
+24,planes,"type, engines, seats","Aircraft type impossible for an airline flight (1 rotorcraft, 1 four-seat piston plane)",2,Kept unchanged; documented as suspect records (registration probably re-used)
+25,planes,engines,A330-223 listed with 3 engines (the type has 2),3,Kept unchanged; documented as suspect records
+26,planes,seats,"Seat count is a registry reference figure, not the installed cabin (e.g. A321 with 379 seats, ERJ 190 with 20)",315,Kept unchanged; warning added to the data dictionary
+27,airports,"tz, dst",Missing UTC offset and daylight-saving code,48,Left missing; none of these airports is used by a flight
+28,airports,tzone,Missing time-zone name,119,Left missing; none of these airports is used by a flight
+29,airports,dst,Code 'U' (unknown) is a missing value in disguise,21,Converted to a real missing value
+30,airports,tz,Impossible UTC offset: RHV (California) has +8; OEL has -5 but coordinates in Russia,2,Set to missing (and dst for OEL); not guessed
+31,airports,dst,EMT (California) has the European daylight-saving code 'E',1,Set to missing; not guessed
+32,airports,name,Same airport name used by different airports,5,"Kept; they are different airports. faa is the key, never the name"
+33,airports,name,Names with accented characters,7,Kept; files exported as UTF-8
+34,weather,(rows),"Hours with no weather row: all of 31 Dec at 3 airports, plus 1 hour at LGA on 2 May",73,Not imputed; no rows created. Documented
+35,weather,wind_gust,Not a measurement: exactly wind_speed x 1.15078 (knots-to-mph factor) on every row,26207,Column dropped
+36,weather,wind_speed,Missing wind speed,1041,Left missing; not imputed
+37,weather,wind_dir,Missing wind direction (includes hours with variable wind),1225,Left missing; not imputed
+38,weather,wind_dir,"Value 0 means calm (no wind), not north",1255,Kept; meaning documented in the data dictionary
+39,weather,"temp, dewp, humid","Missing temperature, dew point and humidity",2,Left missing; not imputed
+40,weather,pressure,Missing pressure,10,Left missing; not imputed
+41,weather,visib,Missing visibility,23,Left missing; not imputed
+42,weather,precip,"Value 0.0001 is a code for a trace amount, not a measurement",1715,Kept; meaning documented in the data dictionary
+43,weather,"year, month, day, hour",Redundant copies of time_hour,26207,Dropped; time_hour is kept
+44,weather,time_hour,"Daily temperature cycle peaks 3 to 4 hours late: timestamps may be UTC, not local time",26207,Not changed (cannot be confirmed from the files). Documented as a limitation
+45,airports,"lat, lon",Coordinate values with more than 6 decimals (number-format noise),2147,Rounded to 6 decimals (about 10 cm); no real precision lost
+46,airlines,name,Generic column name (every lookup table has a 'name'),14,Renamed to airline_name; no value changes needed
+47,airports,"name, alt, tz",Generic or unit-less column names,1255,"Renamed to airport_name, alt_ft, utc_offset_hours"
